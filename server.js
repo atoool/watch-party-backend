@@ -4,21 +4,60 @@ const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  cors: {
+    origin: "*", // Be more specific in production
+  }
+});
 
-// Handle socket.io connections
 io.on("connection", (socket) => {
-    console.log("A user connected:", socket.id);
+  console.log("A user connected:", socket.id);
+  console.log("Total connected clients:", io.engine.clientsCount);
+  socket.onAny((eventName, ...args) => {
+    console.log("Received event:", eventName, "with args:", args);
+});
+  // Listen for 'joinRoom' events
+  socket.on("joinRoom", ({roomId,username}) => {
+    console.log(`Socket ${socket.id} joined room ${roomId}`);
+    socket.join(roomId); // Add the socket to the specified room
+    
+    // Log all clients in this room
+    const clients = io.sockets.adapter.rooms.get(roomId);
+    console.log(`Clients in room ${roomId}:`, clients ? Array.from(clients) : []);
+    
+    // Confirm the user has joined the room
+    socket.to(roomId).emit("roomJoined", {message:`${username} has joined room: ${roomId}`,count:io.engine.clientsCount});
+  });
 
-    // Listen for video actions
-    socket.on("video-action", (data) => {
-        // Broadcast the action to other users
-        socket.broadcast.emit("video-action", data);
-    });
+  // Handle messages sent to the room
+  socket.on("sendMessageToRoom", ({ roomId, message,username }) => {
+    console.log(`Message to ${roomId}: ${message}`);
+    console.log(`Sender socket ID: ${socket.id}`);
+    
+    // Log all clients in this room before sending
+    const clients = io.sockets.adapter.rooms.get(roomId);
+    console.log(`Clients in room ${roomId}:`, clients ? Array.from(clients) : []);
+    
+    // Broadcast message to everyone in the room
+    socket.to(roomId).emit("roomMessage", {message,roomId,username});
+  });
 
-    socket.on("disconnect", () => {
-        console.log("User disconnected:", socket.id);
-    });
+  // Handle messages sent to the room
+  socket.on("videoTriggered", ({ roomId, action, time=0 }) => {
+    console.log(`Video action trigger to ${roomId}: ${action}`);
+    
+    // Broadcast message to everyone in the room
+    io.to(roomId).emit("videoAction", {action,time,roomId});
+  });
+  // Handle disconnection
+  socket.on("disconnect", () => {
+    console.log("A user disconnected:", socket.id);
+  });
+});
+
+// Add error handling
+io.engine.on("connection_error", (err) => {
+  console.log("Connection error:", err);
 });
 
 const PORT = 5001;
