@@ -94,6 +94,9 @@ io.on("connection", (socket) => {
       userId: socket.id,
     });
     socket.leave(`video-${roomId}`);
+    io.emit("userLeftCall", {
+      userId: socket.id,
+    });
   });
   // Handle disconnection
   socket.on("disconnect", () => {
