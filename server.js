@@ -62,6 +62,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("joinVideoRoom", ({ roomId, username }) => {
+    console.log(roomId,username,'joinvideoroom')
     socket.join(`video-${roomId}`);
     socket.to(`video-${roomId}`).emit("userJoinedCall", {
       userId: socket.id,
@@ -90,6 +91,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("leaveVideoRoom", ({ roomId }) => {
+    if(!!roomId){
     socket.to(`video-${roomId}`).emit("userLeftCall", {
       userId: socket.id,
     });
@@ -97,9 +99,10 @@ io.on("connection", (socket) => {
     io.emit("userLeftCall", {
       userId: socket.id,
     });
+  }
   });
   // Handle disconnection
-  socket.on("disconnect", () => {
+  socket.on("disconnect", ({roomId}) => {
     console.log("A user disconnected:", socket.id);
     socket.to(`video-${roomId}`).emit("userLeftCall", {
       userId: socket.id,
