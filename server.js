@@ -62,14 +62,16 @@ io.on("connection", (socket) => {
   });
 
   socket.on("joinVideoRoom", ({ roomId, username }) => {
-    console.log(roomId,username,'joinvideoroom')
+    console.log(`Socket ${socket.id} joined video room ${roomId}`);
     socket.join(`video-${roomId}`);
     socket.to(`video-${roomId}`).emit("userJoinedCall", {
       userId: socket.id,
       username,
     });
   });
+
   socket.on("offer", ({ offer, to, roomId }) => {
+    console.log(`Received offer from ${socket.id} to ${to} in room ${roomId}`);
     socket.to(to).emit("offer", {
       offer,
       from: socket.id,
@@ -77,6 +79,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("answer", ({ answer, to, roomId }) => {
+    console.log(`Received answer from ${socket.id} to ${to} in room ${roomId}`);
     socket.to(to).emit("answer", {
       answer,
       from: socket.id,
@@ -84,6 +87,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("iceCandidate", ({ candidate, to, roomId }) => {
+    console.log(`Received ICE candidate from ${socket.id} to ${to} in room ${roomId}`);
     socket.to(to).emit("iceCandidate", {
       candidate,
       from: socket.id,
