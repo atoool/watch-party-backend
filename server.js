@@ -1,6 +1,10 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
+const { exec } = require("child_process");
+const path = require("path");
+const fs = require("fs");
+const cors = require("cors");
 
 const app = express();
 const server = http.createServer(app);
@@ -9,6 +13,32 @@ const io = new Server(server, {
     origin: "*", // Be more specific in production
   },
 });
+
+app.use(cors()); // Add this line to enable CORS
+app.use(express.json());
+
+app.post('/transcode', (req, res) => {
+  const { videoUrl } = req.body;
+  const videoName = path.basename(videoUrl, path.extname(videoUrl));
+  const outputPath = path.join(__dirname, 'videos', `${videoName}.mp4`);
+
+  // Check if the file is already transcoded
+  if (fs.existsSync(outputPath)) {
+    return res.json({ videoUrl: `/videos/${videoName}.mp4` });
+  }
+
+  // Transcode the video using FFmpeg
+  const command = `ffmpeg -i "${videoUrl}" -c:v libx264 -c:a aac "${outputPath}"`;
+  exec(command, (error, stdout, stderr) => {
+    if (error) {
+      console.error(`Error transcoding video: ${error.message}`);
+      return res.status(500).json({ error: 'Error transcoding video' });
+    }
+    res.json({ videoUrl: `/videos/${videoName}.mp4` });
+  });
+});
+
+app.use('/videos', express.static(path.join(__dirname, 'videos')));
 
 io.on("connection", (socket) => {
   console.log("A user connected:", socket.id);

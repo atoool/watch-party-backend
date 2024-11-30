@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: watch-party-backend
+    env: node
+    buildCommand: ./render-build.sh && npm install
+    startCommand: npm start
