@@ -18,17 +18,29 @@ const io = new Server(server, {
 app.use(cors()); // Add this line to enable CORS
 app.use(express.json());
 
+const ffmpegProcesses = new Map();
+
 app.post('/transcode', (req, res) => {
   const { videoUrl, roomId } = req.body;
   const videoName = path.basename(videoUrl, path.extname(videoUrl)).replace(/[^a-zA-Z0-9]/g, "").replace(/\s+/g, "");
   const videosDir = path.join(os.tmpdir());
 
+  // Terminate any existing FFmpeg process for the same room
+  if (ffmpegProcesses.has(roomId)) {
+    const existingProcess = ffmpegProcesses.get(roomId);
+    existingProcess.kill('SIGINT');
+    ffmpegProcesses.delete(roomId);
+  }
+  
   // Transcode the video using FFmpeg
   const command = `ffmpeg -i "${videoUrl}" -c:v libx264 -c:a aac -f segment -segment_time 300 -reset_timestamps 1 "${videosDir}/${videoName}_%03d.mp4"`;
   const ffmpegProcess = exec(command);
 
+  ffmpegProcesses.set(roomId, ffmpegProcess);
+
   ffmpegProcess.on('error', (error) => {
       console.error(`Error transcoding video: ${error.message}`);
+      ffmpegProcesses.delete(roomId);
       return res.status(500).json({ error: 'Error transcoding video' });
   });
 
@@ -46,6 +58,7 @@ app.post('/transcode', (req, res) => {
       }
 
       // Emit the chunk URLs to the frontend
+      console.log('Files:', files);
       const chunkUrls = files.map(file => `https://watch-party-backend-sppv.onrender.com/videos/${file}`);
       io.to(roomId).emit("videoAction", { action: 'videourl', roomId, url: chunkUrls });
     });
