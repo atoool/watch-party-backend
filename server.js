@@ -21,10 +21,11 @@ app.use(express.json());
 app.post('/transcode', (req, res) => {
   const { videoUrl } = req.body;
   const videoName = path.basename(videoUrl, path.extname(videoUrl));
-  const outputPath = path.join(os.tmpdir(), 'videos', `${videoName}.mp4`);
+  const outputPath = path.join(os.tmpdir(), `${videoName}.mp4`);
 
   // Check if the file is already transcoded
   if (fs.existsSync(outputPath)) {
+    console.log('File already transcoded');
     return res.json({ videoUrl: `/videos/${videoName}.mp4` });
   }
 
@@ -39,7 +40,7 @@ app.post('/transcode', (req, res) => {
   });
 });
 
-app.use('/videos', express.static(path.join(__dirname, 'videos')));
+app.use('/videos', express.static(path.join(os.tmpdir())));
 
 io.on("connection", (socket) => {
   console.log("A user connected:", socket.id);
