@@ -58,7 +58,7 @@ io.on("connection", (socket) => {
     console.log(`Video action trigger to ${roomId}: ${action}`);
 
     // Broadcast message to everyone in the room
-    io.to(roomId).emit("videoAction", { action, time, roomId });
+    socket.to(roomId).emit("videoAction", { action, time, roomId });
   });
 
   socket.on("joinVideoRoom", ({ roomId, username }) => {
