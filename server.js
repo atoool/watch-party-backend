@@ -5,6 +5,7 @@ const { exec } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const cors = require("cors");
+const os = require("os");
 
 const app = express();
 const server = http.createServer(app);
@@ -20,7 +21,7 @@ app.use(express.json());
 app.post('/transcode', (req, res) => {
   const { videoUrl } = req.body;
   const videoName = path.basename(videoUrl, path.extname(videoUrl));
-  const outputPath = path.join(__dirname, 'videos', `${videoName}.mp4`);
+  const outputPath = path.join(os.tmpdir(), 'videos', `${videoName}.mp4`);
 
   // Check if the file is already transcoded
   if (fs.existsSync(outputPath)) {
