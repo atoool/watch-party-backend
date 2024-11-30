@@ -20,7 +20,7 @@ app.use(express.json());
 
 app.post('/transcode', (req, res) => {
   const { videoUrl } = req.body;
-  const videoName = path.basename(videoUrl, path.extname(videoUrl));
+  const videoName = path.basename(videoUrl, path.extname(videoUrl)).replace(/[^a-zA-Z0-9]/g, "").replace(/\s+/g, "");
   const outputPath = path.join(os.tmpdir(), `${videoName}.mp4`);
 
   // Check if the file is already transcoded
