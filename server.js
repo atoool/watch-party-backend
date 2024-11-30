@@ -19,25 +19,43 @@ app.use(cors()); // Add this line to enable CORS
 app.use(express.json());
 
 app.post('/transcode', (req, res) => {
-  const { videoUrl } = req.body;
+  const { videoUrl, roomId } = req.body;
   const videoName = path.basename(videoUrl, path.extname(videoUrl)).replace(/[^a-zA-Z0-9]/g, "").replace(/\s+/g, "");
-  const outputPath = path.join(os.tmpdir(), `${videoName}.mp4`);
-
-  // Check if the file is already transcoded
-  if (fs.existsSync(outputPath)) {
-    console.log('File already transcoded');
-    return res.json({ videoUrl: `/videos/${videoName}.mp4` });
-  }
+  const videosDir = path.join(os.tmpdir());
 
   // Transcode the video using FFmpeg
-  const command = `ffmpeg -i "${videoUrl}" -c:v libx264 -c:a aac "${outputPath}"`;
-  exec(command, (error, stdout, stderr) => {
-    if (error) {
+  const command = `ffmpeg -i "${videoUrl}" -c:v libx264 -c:a aac -f segment -segment_time 300 -reset_timestamps 1 "${videosDir}/${videoName}_%03d.mp4"`;
+  const ffmpegProcess = exec(command);
+
+  ffmpegProcess.on('error', (error) => {
       console.error(`Error transcoding video: ${error.message}`);
       return res.status(500).json({ error: 'Error transcoding video' });
-    }
-    res.json({ videoUrl: `/videos/${videoName}.mp4` });
   });
+
+  ffmpegProcess.stdout.on('data', (data) => {
+    console.log(`stdout: ${data}`);
+  });
+
+  ffmpegProcess.stderr.on('data', (data) => {
+    console.error(`stderr: ${data}`);
+    // Check for new chunks
+    fs.readdir(videosDir, (err, files) => {
+      if (err) {
+        console.error(`Error reading directory: ${err.message}`);
+        return;
+      }
+
+      // Emit the chunk URLs to the frontend
+      const chunkUrls = files.map(file => `https://watch-party-backend-sppv.onrender.com/videos/${file}`);
+      io.to(roomId).emit("videoAction", { action: 'videourl', roomId, url: chunkUrls });
+    });
+
+    ffmpegProcess.on('close', (code) => {
+      console.log(`FFmpeg process exited with code ${code}`);
+      res.json({ message: 'Transcoding started' });
+    });
+  });
+
 });
 
 app.use('/videos', express.static(path.join(os.tmpdir())));
@@ -86,11 +104,16 @@ io.on("connection", (socket) => {
   });
 
   // Handle messages sent to the room
-  socket.on("videoTriggered", ({ roomId, action, time = 0 }) => {
+  socket.on("videoTriggered", ({ roomId, action, time = 0, url = '' }) => {
     console.log(`Video action trigger to ${roomId}: ${action}`);
 
     // Broadcast message to everyone in the room
-    socket.to(roomId).emit("videoAction", { action, time, roomId });
+    if(action === 'videourl'){
+      io.to(roomId).emit("videoAction", { action, roomId, url });
+    }
+    else{
+      socket.to(roomId).emit("videoAction", { action, time, roomId });
+    }
   });
 
   socket.on("joinVideoRoom", ({ roomId, username }) => {
